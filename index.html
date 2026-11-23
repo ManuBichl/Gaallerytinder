@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>SwipeClean – Galerie & Cloud Prototyp</title>
+  <style>
+    :root {
+      --bg: #0b0d12;
+      --surface: #151922;
+      --surface-2: #1e2432;
+      --text: #f5f7fb;
+      --muted: #9aa3b2;
+      --keep: #22c55e;
+      --trash: #ef4444;
+      --accent: #3b82f6;
+      --border: rgba(255, 255, 255, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100dvh;
+      background: radial-gradient(circle at top, #171d2b 0%, var(--bg) 65%);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 12px;
+      overflow-x: hidden;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 430px;
+      height: min(860px, 96dvh);
+      background: rgba(21, 25, 34, 0.92);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--border);
+      border-radius: 34px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+
+    header {
+      padding: 14px 16px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .top-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .brand {
+      font-weight: 700;
+      font-size: 1.15rem;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--trash), var(--keep));
+    }
+
+    .btn-upload {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 999px;
+      padding: 7px 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .segmented {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      background: var(--bg);
+      padding: 4px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+    }
+
+    .seg-btn {
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      padding: 8px 10px;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .seg-btn.active {
+      background: var(--surface-2);
+      color: var(--text);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+    }
+
+    .folder-bar {
+      display: none;
+      gap: 6px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+    }
+
+    .folder-bar.visible {
+      display: flex;
+    }
+
+    .chip {
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--muted);
+      padding: 5px 11px;
+      border-radius: 999px;
+      font-size: 0.76rem;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    .chip.active {
+      background: rgba(59, 130, 246, 0.2);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .stage {
+      flex: 1;
+      position: relative;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .card {
+      position: absolute;
+      width: calc(100% - 32px);
+      height: calc(100% - 24px);
+      border-radius: 26px;
+      overflow: hidden;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      box-shadow: 0 18px 36px rgba(0, 0, 0, 0.5);
+      user-select: none;
+      touch-action: none;
+      transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s ease;
+    }
+
+    .card.dragging {
+      transition: none;
+      cursor: grabbing;
+    }
+
+    .card img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      pointer-events: none;
+      display: block;
+    }
+
+    .stamp {
+      position: absolute;
+      top: 22px;
+      padding: 6px 14px;
+      border-radius: 10px;
+      font-weight: 800;
+      font-size: 1.05rem;
+      letter-spacing: 0.08em;
+      border: 3px solid;
+      opacity: 0;
+      pointer-events: none;
+      transform: rotate(-12deg);
+    }
+
+    .stamp.keep {
+      left: 20px;
+      color: var(--keep);
+      border-color: var(--keep);
+      background: rgba(34, 197, 94, 0.14);
+    }
+
+    .stamp.trash {
+      right: 20px;
+      color: var(--trash);
+      border-color: var(--trash);
+      background: rgba(239, 68, 68, 0.14);
+      transform: rotate(12deg);
+    }
+
+    .card-meta {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 40px 18px 16px;
+      background: linear-gradient(to top, rgba(0, 0, 0, 0.88), transparent);
+    }
+
+    .card-title {
+      font-weight: 700;
+      font-size: 1rem;
+      margin-bottom: 4px;
+    }
+
+    .card-sub {
+      font-size: 0.78rem;
+      color: #d1d5db;
+    }
+
+    .empty-state {
+      text-align: center;
+      color: var(--muted);
+      padding: 24px;
+    }
+
+    .empty-state button {
+      margin-top: 12px;
+      background: var(--surface-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 10px 16px;
+      border-radius: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .controls {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      padding: 8px 16px 12px;
+    }
+
+    .circle-btn {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      font-size: 1.35rem;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+    }
+
+    .circle-btn.trash { color: var(--trash); }
+    .circle-btn.keep { color: var(--keep); }
+
+    footer {
+      padding: 12px 16px 16px;
+      background: rgba(11, 13, 18, 0.85);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .stats {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .stats strong {
+      color: var(--text);
+    }
+
+    .btn-trash-view {
+      background: rgba(239, 68, 68, 0.16);
+      color: #fca5a5;
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      border-radius: 12px;
+      padding: 8px 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.72);
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+      z-index: 50;
+    }
+
+    .modal.open {
+      display: flex;
+    }
+
+    .sheet {
+      width: 100%;
+      max-width: 430px;
+      max-height: 78dvh;
+      background: var(--surface);
+      border-top-left-radius: 24px;
+      border-top-right-radius: 24px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .trash-list {
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .trash-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--surface-2);
+      padding: 8px 10px;
+      border-radius: 12px;
+      gap: 10px;
+    }
+
+    .trash-item img {
+      width: 44px;
+      height: 44px;
+      object-fit: cover;
+      border-radius: 8px;
+    }
+
+    .trash-item-info {
+      flex: 1;
+      font-size: 0.82rem;
+    }
+
+    .sheet-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .sheet-actions button {
+      flex: 1;
+      padding: 11px;
+      border-radius: 12px;
+      border: none;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .btn-restore {
+      background: var(--surface-2);
+      color: var(--text);
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      font-size: 0.76rem;
+    }
+
+    .btn-purge {
+      background: var(--trash);
+      color: #fff;
+    }
+
+    .btn-close {
+      background: var(--surface-2);
+      color: var(--text);
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="top-row">
+        <div class="brand"><span class="brand-dot"></span>SwipeClean</div>
+        <button class="btn-upload" id="uploadBtn">+ Eigene Fotos</button>
+        <input type="file" id="fileInput" accept="image/*" multiple hidden />
+      </div>
+
+      <div class="segmented">
+        <button class="seg-btn active" data-mode="gallery">iPhone Galerie</button>
+        <button class="seg-btn" data-mode="cloud">Cloud Speicher</button>
+      </div>
+
+      <div class="folder-bar" id="folderBar">
+        <button class="chip active" data-folder="all">Alle Cloud-Ordner</button>
+        <button class="chip" data-folder="iCloud Drive">iCloud Drive</button>
+        <button class="chip" data-folder="Urlaub 2025">Urlaub 2025</button>
+        <button class="chip" data-folder="Backups">Backups</button>
+      </div>
+    </header>
+
+    <main class="stage" id="stage"></main>
+
+    <div class="controls">
+      <button class="circle-btn trash" id="btnLeft" title="Nach links: Löschen">✕</button>
+      <button class="circle-btn keep" id="btnRight" title="Nach rechts: Behalten">♥</button>
+    </div>
+
+    <footer>
+      <div class="stats" id="stats">
+        Papierkorb: <strong id="trashCount">0</strong> (<strong id="freedMb">0.0 MB</strong> frei)
+      </div>
+      <button class="btn-trash-view" id="openTrashBtn">Papierkorb</button>
+    </footer>
+  </div>
+
+  <div class="modal" id="trashModal">
+    <div class="sheet">
+      <div class="top-row">
+        <strong>Vorgemerkte Löschungen</strong>
+        <span id="modalMb" style="font-size:0.82rem;color:var(--muted);">0.0 MB</span>
+      </div>
+      <div class="trash-list" id="trashList"></div>
+      <div class="sheet-actions">
+        <button class="btn-close" id="closeTrashBtn">Schließen</button>
+        <button class="btn-purge" id="purgeBtn">Endgültig löschen</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function makeSvgPhoto(title, subtitle, c1, c2) {
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1100" viewBox="0 0 800 1100">
+        <defs>
+          <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="${c1}"/>
+            <stop offset="100%" stop-color="${c2}"/>
+          </linearGradient>
+        </defs>
+        <rect width="800" height="1100" fill="url(#g)"/>
+        <circle cx="620" cy="240" r="150" fill="rgba(255,255,255,0.12)"/>
+        <circle cx="190" cy="780" r="220" fill="rgba(0,0,0,0.15)"/>
+        <text x="56" y="510" fill="#ffffff" font-family="system-ui, sans-serif" font-size="54" font-weight="700">${title}</text>
+        <text x="56" y="575" fill="rgba(255,255,255,0.82)" font-family="system-ui, sans-serif" font-size="30">${subtitle}</text>
+      </svg>`;
+      return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+    }
+
+    let photos = [
+      { id: 1, mode: "gallery", folder: "Aufnahmen", title: "Screenshot_0492.png", sizeMb: 4.2, src: makeSvgPhoto("Screenshot", "Doppeltes Menü-Foto", "#334155", "#0f172a") },
+      { id: 2, mode: "gallery", folder: "Aufnahmen", title: "IMG_8821.jpg", sizeMb: 6.8, src: makeSvgPhoto("Sonnenuntergang", "Chiemsee Ufer", "#ea580c", "#7c2d12") },
+      { id: 3, mode: "gallery", folder: "Aufnahmen", title: "IMG_8822.jpg", sizeMb: 6.5, src: makeSvgPhoto("Fast identisch", "2 Sekunden später", "#be123c", "#4c0519") },
+      { id: 4, mode: "cloud", folder: "Urlaub 2025", title: "Alpen_Gipfel.jpg", sizeMb: 8.4, src: makeSvgPhoto("Bergpanorama", "iCloud · Urlaub 2025", "#0284c7", "#1e3a8a") },
+      { id: 5, mode: "cloud", folder: "Backups", title: "Scan_Alt_2022.jpg", sizeMb: 5.1, src: makeSvgPhoto("Altes Dokument", "iCloud · Backups", "#4f46e5", "#1e1b4b") },
+      { id: 6, mode: "cloud", folder: "iCloud Drive", title: "Wandbild_Entwurf.jpg", sizeMb: 7.3, src: makeSvgPhoto("Farbstudie", "iCloud Drive", "#0d9488", "#134e4a") }
+    ];
+
+    let mode = "gallery";
+    let cloudFolder = "all";
+    let keptIds = new Set();
+    let trashedIds = new Set();
+
+    const stage = document.getElementById("stage");
+    const folderBar = document.getElementById("folderBar");
+    const trashModal = document.getElementById("trashModal");
+
+    function getDeck() {
+      return photos.filter((p) => {
+        if (keptIds.has(p.id) || trashedIds.has(p.id)) return false;
+        if (p.mode !== mode) return false;
+        if (mode === "cloud" && cloudFolder !== "all" && p.folder !== cloudFolder) return false;
+        return true;
+      });
+    }
+
+    function updateStats() {
+      const list = photos.filter((p) => trashedIds.has(p.id));
+      const mb = list.reduce((sum, item) => sum + item.sizeMb, 0).toFixed(1);
+      document.getElementById("trashCount").textContent = list.length;
+      document.getElementById("freedMb").textContent = mb + " MB";
+      document.getElementById("modalMb").textContent = mb + " MB freiwerdend";
+    }
+
+    function commitSwipe(photo, dir) {
+      if (dir === "right") keptIds.add(photo.id);
+      if (dir === "left") trashedIds.add(photo.id);
+      updateStats();
+      renderDeck();
+    }
+
+    function triggerButtonSwipe(dir) {
+      const deck = getDeck();
+      if (!deck.length) return;
+      const topPhoto = deck[deck.length - 1];
+      const topCard = stage.querySelector(`.card[data-id="${topPhoto.id}"]`);
+      if (!topCard) {
+        commitSwipe(topPhoto, dir);
+        return;
+      }
+      const x = dir === "right" ? 420 : -420;
+      const rot = dir === "right" ? 18 : -18;
+      topCard.style.transform = `translateX(${x}px) rotate(${rot}deg)`;
+      topCard.style.opacity = "0";
+      setTimeout(() => commitSwipe(topPhoto, dir), 200);
+    }
+
+    function attachDrag(card, photo) {
+      let startX = 0;
+      let currentX = 0;
+      let dragging = false;
+
+      const keepStamp = card.querySelector(".stamp.keep");
+      const trashStamp = card.querySelector(".stamp.trash");
+
+      const onDown = (e) => {
+        dragging = true;
+        startX = e.touches ? e.touches[0].clientX : e.clientX;
+        currentX = 0;
+        card.classList.add("dragging");
+      };
+
+      const onMove = (e) => {
+        if (!dragging) return;
+        const x = e.touches ? e.touches[0].clientX : e.clientX;
+        currentX = x - startX;
+        const rot = currentX * 0.045;
+        card.style.transform = `translateX(${currentX}px) rotate(${rot}deg)`;
+
+        const ratio = Math.min(Math.abs(currentX) / 110, 1);
+        if (currentX > 0) {
+          keepStamp.style.opacity = ratio;
+          trashStamp.style.opacity = 0;
+        } else {
+          trashStamp.style.opacity = ratio;
+          keepStamp.style.opacity = 0;
+        }
+      };
+
+      const onUp = () => {
+        if (!dragging) return;
+        dragging = false;
+        card.classList.remove("dragging");
+
+        if (currentX > 105) {
+          card.style.transform = "translateX(440px) rotate(20deg)";
+          card.style.opacity = "0";
+          setTimeout(() => commitSwipe(photo, "right"), 180);
+        } else if (currentX < -105) {
+          card.style.transform = "translateX(-440px) rotate(-20deg)";
+          card.style.opacity = "0";
+          setTimeout(() => commitSwipe(photo, "left"), 180);
+        } else {
+          card.style.transform = "";
+          keepStamp.style.opacity = 0;
+          trashStamp.style.opacity = 0;
+        }
+      };
+
+      card.addEventListener("pointerdown", (e) => {
+        card.setPointerCapture(e.pointerId);
+        onDown(e);
+      });
+      card.addEventListener("pointermove", onMove);
+      card.addEventListener("pointerup", onUp);
+      card.addEventListener("pointercancel", onUp);
+    }
+
+    function renderDeck() {
+      stage.innerHTML = "";
+      const deck = getDeck();
+
+      if (!deck.length) {
+        stage.innerHTML = `
+          <div class="empty-state">
+            <div style="font-size:1.05rem;font-weight:700;color:#fff;margin-bottom:6px;">Stapel erledigt</div>
+            <div>Keine weiteren Fotos in dieser Ansicht übrig.</div>
+            <button id="resetDeckBtn">Stapel zurücksetzen</button>
+          </div>`;
+        const resetBtn = document.getElementById("resetDeckBtn");
+        if (resetBtn) {
+          resetBtn.addEventListener("click", () => {
+            photos.forEach((p) => {
+              if (p.mode === mode) keptIds.delete(p.id);
+            });
+            renderDeck();
+          });
+        }
+        return;
+      }
+
+      const visible = deck.slice(-3);
+      visible.forEach((photo, idx) => {
+        const depth = visible.length - 1 - idx;
+        const card = document.createElement("div");
+        card.className = "card";
+        card.dataset.id = photo.id;
+        card.style.zIndex = idx + 1;
+        card.style.transform = `scale(${1 - depth * 0.04}) translateY(${depth * 10}px)`;
+
+        card.innerHTML = `
+          <img src="${photo.src}" alt="${photo.title}" />
+          <div class="stamp keep">BEHALTEN</div>
+          <div class="stamp trash">LÖSCHEN</div>
+          <div class="card-meta">
+            <div class="card-title">${photo.title}</div>
+            <div class="card-sub">${photo.folder} · ${photo.sizeMb.toFixed(1)} MB</div>
+          </div>`;
+
+        if (idx === visible.length - 1) {
+          attachDrag(card, photo);
+        }
+        stage.appendChild(card);
+      });
+    }
+
+    document.querySelectorAll(".seg-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".seg-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        mode = btn.dataset.mode;
+        folderBar.classList.toggle("visible", mode === "cloud");
+        renderDeck();
+      });
+    });
+
+    document.querySelectorAll("#folderBar .chip").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        document.querySelectorAll("#folderBar .chip").forEach((c) => c.classList.remove("active"));
+        chip.classList.add("active");
+        cloudFolder = chip.dataset.folder;
+        renderDeck();
+      });
+    });
+
+    document.getElementById("btnLeft").addEventListener("click", () => triggerButtonSwipe("left"));
+    document.getElementById("btnRight").addEventListener("click", () => triggerButtonSwipe("right"));
+
+    const fileInput = document.getElementById("fileInput");
+    document.getElementById("uploadBtn").addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", (e) => {
+      const files = Array.from(e.target.files || []);
+      files.forEach((file, i) => {
+        const url = URL.createObjectURL(file);
+        const mb = Math.max(0.5, +(file.size / (1024 * 1024)).toFixed(1));
+        photos.push({
+          id: Date.now() + i,
+          mode: mode,
+          folder: mode === "cloud" ? (cloudFolder === "all" ? "iCloud Drive" : cloudFolder) : "Eigene Fotos",
+          title: file.name,
+          sizeMb: mb,
+          src: url
+        });
+      });
+      fileInput.value = "";
+      renderDeck();
+    });
+
+    function renderTrashModal() {
+      const list = document.getElementById("trashList");
+      const trashed = photos.filter((p) => trashedIds.has(p.id));
+      list.innerHTML = "";
+      if (!trashed.length) {
+        list.innerHTML = `<div style="color:var(--muted);font-size:0.85rem;padding:12px 0;">Noch keine Fotos nach links gewischt.</div>`;
+        return;
+      }
+      trashed.forEach((item) => {
+        const row = document.createElement("div");
+        row.className = "trash-item";
+        row.innerHTML = `
+          <img src="${item.src}" alt="${item.title}" />
+          <div class="trash-item-info">
+            <div><strong>${item.title}</strong></div>
+            <div style="color:var(--muted);font-size:0.74rem;">${item.folder} · ${item.sizeMb.toFixed(1)} MB</div>
+          </div>
+          <button class="btn-restore">Wiederherstellen</button>`;
+        row.querySelector(".btn-restore").addEventListener("click", () => {
+          trashedIds.delete(item.id);
+          updateStats();
+          renderTrashModal();
+          renderDeck();
+        });
+        list.appendChild(row);
+      });
+    }
+
+    document.getElementById("openTrashBtn").addEventListener("click", () => {
+      renderTrashModal();
+      trashModal.classList.add("open");
+    });
+
+    document.getElementById("closeTrashBtn").addEventListener("click", () => {
+      trashModal.classList.remove("open");
+    });
+
+    document.getElementById("purgeBtn").addEventListener("click", () => {
+      photos = photos.filter((p) => !trashedIds.has(p.id));
+      trashedIds.clear();
+      updateStats();
+      renderTrashModal();
+      renderDeck();
+      trashModal.classList.remove("open");
+    });
+
+    updateStats();
+    renderDeck();
+  </script>
+</body>
+</html>
